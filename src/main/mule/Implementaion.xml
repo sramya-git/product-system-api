@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="get:\products" doc:id="9a5002cb-3c80-4625-9b66-a56495792001" >
+		<ee:transform doc:name="filter by maxPrice" doc:id="4be8e024-8553-4670-8e05-917758686b31" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload filter ($.price.value != null and $.price.value <= Vars.maxPrice) 
+when Vars.maxPrice != null 
+otherwise payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="filter by  minPrice" doc:id="86ada64e-a2ac-40b8-a7d8-90f3273248b4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload filter ( $.price.value != null and $.price.value >= Vars.minPrice) 
+when Vars.minPrice != null 
+otherwise payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="filter by  name" doc:id="986744e6-9390-4eb0-9748-94b3874872d1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::string
+---
+payload filter ( ($.name != null) and (lower ($.name) contains (lower Vars.name)) ) 
+when Vars.name != null 
+otherwise payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="final mapping" doc:id="675e75d3-5ff3-4351-a58b-f6c6282c8ab6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json 
+var imageData = read(p('imageData'), "application/json")
+var productsThatHaveVariants = payload
+	filter $.baseProduct != null 
+	groupBy $.baseProduct
+	map	using (first = $[0]) {
+        brand:        first.manufacturer,
+        identifier:   first.baseProduct,
+        model:        first.name,
+        rating:       first.averageRating,
+        description:  first.description replace /\<p\>|\<\/p\>/ with "",
+        pictures:     first.images when first.images != null otherwise [],
+        price:{
+            amount:{
+                currency:      first.price.currencyIso,
+                currencyValue: first.price.value,
+                name:          "Amount"
+            },
+            salesUnit: {
+                code:   "EA",
+                name:   "EACH"
+            }
+        }
+    }
+    
+var productsWithoutVariants = payload 
+	filter $.baseProduct == null 
+	map	{
+        brand:          $.manufacturer,
+        identifier:     $.code,
+        model:          $.name,
+        rating:         $.averageRating,
+        description:    $.description replace /\<p\>|\<\/p\>/ with "",
+        pictures:       $.images when $.images != null otherwise [],
+        price:{
+            amount:{
+                currency:       $.price.currencyIso,
+                currencyValue:  $.price.value,
+                name:           "Amount"
+             },
+             salesUnit:{
+                code:   "EA",
+                name:   "EACH"
+             }
+        }
+	}
+    
+---
+{
+	products: flatten (productsWithoutVariants + productsThatHaveVariants)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="f4b5722f-e854-42e0-825a-a88477bf91fd" message="#[message.payloadAs(java.lang.String)]"/>
+	</flow>
+	<flow name="get:\products\(productId)" doc:id="73df6820-4835-4c52-83db-b10fcc19ac07" >
+		<ee:transform doc:name="Transform Message" doc:id="d7c69dc1-3bea-4f97-a7e0-af51b9dbf2ae" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var imageData = read(p('imageData'), "application/json")
+---
+{
+	brand:                   payload.manufacturer,
+	identifier:              payload.code,
+	categoryId:              payload.categories.code,
+	model:                   payload.name,
+	rating:                  payload.averageRating as :number,
+	description:             payload.description replace /\<p\>|\<\/p\>/ with "",
+	pictures:                payload.images when payload.images != null otherwise [],
+	price:{
+		amount:{
+			currency:        payload.price.currencyIso,
+			currencyValue:   payload.price.value,
+			name:            "Amount"
+		},
+	    salesUnit:{
+		    code:            "EA",
+		    name:            "EACH"
+	}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="4cf6e85a-61c4-4e54-b2c4-5a488b380262" message="#[message.payloadAs(java.lang.String)]"/>
+	</flow>
+</mule>
