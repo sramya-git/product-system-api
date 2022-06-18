@@ -10,9 +10,8 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/java
 ---
-payload filter ($.price.value != null and $.price.value <= Vars.maxPrice) 
-when Vars.maxPrice != null 
-otherwise payload]]></ee:set-payload>
+if(vars.maxPrice != null) (payload filter ($.price.value != null and $.price.value <= vars.maxPrice)) 
+else payload]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 		<ee:transform doc:name="filter by  minPrice" doc:id="86ada64e-a2ac-40b8-a7d8-90f3273248b4" >
@@ -20,20 +19,17 @@ otherwise payload]]></ee:set-payload>
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/java
 ---
-payload filter ( $.price.value != null and $.price.value >= Vars.minPrice) 
-when Vars.minPrice != null 
-otherwise payload]]></ee:set-payload>
+if(vars.minPrice != null) (payload filter ( $.price.value != null and $.price.value >= vars.minPrice)) 
+else payload]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 		<ee:transform doc:name="filter by  name" doc:id="986744e6-9390-4eb0-9748-94b3874872d1" >
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/java
-import * from dw::core::string
 ---
-payload filter ( ($.name != null) and (lower ($.name) contains (lower Vars.name)) ) 
-when Vars.name != null 
-otherwise payload]]></ee:set-payload>
+if(vars.name != null) (payload filter ( ($.name != null) and (lower($.name) contains (lower(vars.name))) )) 
+else payload]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 		<ee:transform doc:name="final mapping" doc:id="675e75d3-5ff3-4351-a58b-f6c6282c8ab6" >
@@ -50,7 +46,7 @@ var productsThatHaveVariants = payload
         model:        first.name,
         rating:       first.averageRating,
         description:  first.description replace /\<p\>|\<\/p\>/ with "",
-        pictures:     first.images when first.images != null otherwise [],
+        pictures:     if(first.images != null) first.images else [],
         price:{
             amount:{
                 currency:      first.price.currencyIso,
@@ -72,7 +68,7 @@ var productsWithoutVariants = payload
         model:          $.name,
         rating:         $.averageRating,
         description:    $.description replace /\<p\>|\<\/p\>/ with "",
-        pictures:       $.images when $.images != null otherwise [],
+        pictures:       if($.images != null) $.images else [],
         price:{
             amount:{
                 currency:       $.price.currencyIso,
@@ -95,7 +91,7 @@ var productsWithoutVariants = payload
 		<logger level="INFO" doc:name="Logger" doc:id="f4b5722f-e854-42e0-825a-a88477bf91fd" message="#[message.payloadAs(java.lang.String)]"/>
 	</flow>
 	<flow name="get:\products\(productId)" doc:id="73df6820-4835-4c52-83db-b10fcc19ac07" >
-		<ee:transform doc:name="Transform Message" doc:id="d7c69dc1-3bea-4f97-a7e0-af51b9dbf2ae" >
+		<ee:transform doc:name="Transform Message" doc:id="c2dd93ad-5ce7-4b67-8a2d-9a8100bac4b6" >
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
@@ -106,9 +102,9 @@ var imageData = read(p('imageData'), "application/json")
 	identifier:              payload.code,
 	categoryId:              payload.categories.code,
 	model:                   payload.name,
-	rating:                  payload.averageRating as :number,
+	rating:                  payload.averageRating as Number,
 	description:             payload.description replace /\<p\>|\<\/p\>/ with "",
-	pictures:                payload.images when payload.images != null otherwise [],
+	pictures:                if(payload.images != null) payload.images else [],
 	price:{
 		amount:{
 			currency:        payload.price.currencyIso,
